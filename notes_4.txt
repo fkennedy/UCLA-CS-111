@@ -1,0 +1,78 @@
+The Abstraction: The Process
+
+4.1 The Abstraction: A Process
+    A process is simply a running program.
+    
+    Machine state
+        What a program can read or update when it is running
+        What parts of the machine are important to the execution of the program
+        
+        Components:
+            Memory
+                Instructions lie in memory
+                Data that the program reads and writes sits in memory
+                Address space - memory that the process can address
+            Registers
+                Instructions read or update registers
+                Special registers:
+                    Program counter (PC) - also known as the instruction pointer (IP) tells us which instruction of the program is being executed.
+                    Stack pointer and associated frame pointer are used to manage the stack for function parameters, local variables, and return addresses.
+4.2 Process API
+    Create
+        An OS must include a method to create new processes
+            Type command into shell or double click application icon
+                OS is invoked to create new process
+    Destroy
+        Many process will run and exit by themselves when complete
+        Interface to halt runaway process
+    Wait
+        Sometimes useful to wait for a process to stop running.
+    Miscellaneous Control
+        Instead of killing and waiting, could suspend process and then resume
+    Status
+        Get status information about process, how long has it run and its current state.
+
+4.3 Process Creation
+    Steps taken:
+        Load code and static date into memory (into address space of the process)
+            Initially, programs reside on disk/SSDs in an executable format.
+                Loading program requires OS to read bytes from disk and place in memory
+                Process Loading
+                    Eagerly
+                        Load the code all at once before running program
+                    Lazily
+                        Modern OSes
+                        Load pieces of code or data only as they are needed during execution.
+                        Paging/Sweapping
+        Memory is allocated for the program's (run-time) stack and initialize the stack with arguments (parameters for main() function, i.e. argc/argv array)
+            Local variables
+            Function parameters
+            Return addresses
+        Allocate memory for program's heap
+            For dynamically-allocated data
+                Request space with malloc()
+                Free space with free()
+            Needed for data structures like
+                Linked lists
+                Hash tables
+                Trees
+        Initialize input/output (I/O)
+            In UNIX systems, each process has three open file descriptors
+                Standard input
+                Standard output
+                Standard error
+
+4.4 Process States
+    Running: Currently executing instructions
+    Ready: Ready to run but not currently running
+        Scheduled - ready to running
+        Descheduled - running to ready
+    Blocked: Will run until after some other event
+        Becomes block to do an event (e.g. initiating I/O operation)
+        OS will keep it as such until event occurs (e.g. I/O completion)
+
+4.5 Data Structures
+    Initial state - the process is in here when it is being created
+    Final state - the process has exited but has not yet been cleaned up (zombie state)
+        Parent that created process can examine return code of process and see if it returns 0 (successful execution) or returns otherwise (unsuccessful execution)
+    wait() - to wait for completion of the child and clean up any relevant data structures

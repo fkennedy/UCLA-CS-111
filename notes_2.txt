@@ -1,0 +1,92 @@
+Introduction to Operating Systems
+
+2.1 Virtualizing the CPU
+    Von Neumann model of computing:
+        Running a program, processor takes following steps:
+            Fetches instruction from memory
+            Decodes the instruction - figures out which instruction it is
+            Executes the instruction - does what it has to do
+            Repeats until program is complete
+
+    Virtualization:
+        OS (also known as resource manager) takes physical resource (such as processor, memory, or disk)
+        Transforms into a more powerful virtual form of itself
+            Virtual machine
+        Allows many programs to run at the same time (sharing the CPU)
+        Virtualizing the CPU - turning a single CPU into a seemingly infinite number of CPUs and allowing many programs to seemingly run at once.
+
+    cpu.c:
+        sample program that prints the argument input after every second
+        ./cpu "A" will print A every second
+        ./cpu "A" & ; ./cpu "B" ... "D" & will print A B C D every second at the same time, but order will not be the same (A B D C A B D C A C B D)
+
+2.2 Virtualizing memory
+    Memory is just an array of bytes
+        Read - specify address to access data stored there
+        Write - specify data to be written to given address
+
+    mem.c:
+        Allocates memory (a1)
+        Prints address of memory (a2)
+        Puts number zero into first slot of newly allocated memory (a3)
+        Loops and increment value stored at address held in p every second.
+
+        If we run ./mem &; ./mem &, the program updates the value at 00200000 (address that p is holding)
+        Each running program has its own private memory
+            Virtualizing memory
+            Each process accesses its own private virtual address space
+
+    Process identifier (PID) - unique per running process
+
+2.3 Concurrency
+    Problems that arise and must be addressed when working on many things at once.
+    In exampls on virtualization, the OS is juggling many things at once
+    Not limited to OS
+
+    running ./thread 1000 will give us:
+        Initial value : 0
+        Final value   : 2000
+
+    running ./thread 100000 will give us:
+        Initial value : 0
+        Final value   : 143012
+
+    running ./thread 100000 again will give us:
+        Initial value : 0
+        Final value   : 137298
+
+    Because the instructions are executed one at a time (instead of all at once - atomically), there are problems that occur.
+
+2.4 Persistence
+    DRAM store values in a volatile manner - data is lost when power goes away or the system crashes
+    Software that manages the disk is called file system
+        Responsible for storing any files the user creates.
+
+    main.c
+        Program makes three calls into operating system
+            open() - opens file and creates it
+            write() - wrties data to file
+            close() - closes the file
+        System calls are routed to the part of the operating system called the file system, which handles requests and returns some error code to user.
+
+    To avoidsystem crashes during writes, file systems incorporate a write protocol such as journaling or copy-on-write.
+
+2.5 Design Goals
+    OS:
+        Takes physical resources such as a CPU, memory, or disk, and virtualizes them.
+        Handles touch and tricky issues related to concurrency.
+        Stores files persistenly
+
+        Goal:
+            In designing and implement an OS, provide high performance
+                In other terms, we have to minimize overheads of OS
+                    Time (number of instructions)
+                    Space (in memory or on disk)
+            Provide protection between applications as well as between OS and applications
+                Allow programs to run at the same time but any bad behavior will not affect/harm others.
+                    Most importantly to not be able to harm the OS itself.
+                Isolation - isolating process from one another
+            Must be reliable - operating system should never fail otherwise applications running will also fail.
+            Energy efficient
+            Security - extension of protection
+            Mobility - to run on smaller devices

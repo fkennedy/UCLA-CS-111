@@ -1,0 +1,121 @@
+Interlude: Memory API
+
+14.1 Types of Memory
+    Stack memory
+        Allocation and deallocations are managed implicitly by the compiler
+        Also known as automatic memory
+
+    Declaring memory is easy:
+        In C:
+            void func() {
+                int x;
+                ...
+            }
+        Compiler does the rest, making space on the stack when call into func()
+        When you return, compiler deallocates memory
+        However, this is temporary
+    
+    If you want to retain information beyond the call invocation, use long-lived memory (heap)
+        All allocations and deallocations are explictly handled by the programmer
+        Example of allocating a pointer to an integer on the heap:
+            void func() {
+                int *x = (int *) malloc(sizeof(int));
+                ...
+            }
+                Compiler makes room for a pointer to an integer variable
+                malloc() requests space for an integer on the heap
+                Routine returns address of such integer
+
+14.2 The malloc() Call
+    Pass a size asking for memory on the heap
+        If (success)
+            Gives back pointer to newly-allocated space
+        Else
+            Returns NULL
+    Parameter is of type size_t -> how many bytes are needed
+        double *d = (double *) malloc(sizeof(double));
+            sizeof() is an operator to get the size of a type
+                int is 8
+                double is 32
+    
+    See 14.2.1.c
+    We declared an array of 10 integers
+        sizeof() returns 4 (on 32-bit machines) or 8 (on 64-bit machines)
+    Program is printing how big a pointer to an integer is
+
+    See 14.2.2.c
+    We declared an array of 10 integers
+    Program is printing how big the array is
+
+    For strings, use:
+        malloc(strlen(s) + 1)
+            The additional 1 is for the end-of-string character
+
+14.3 The free() Call
+    Free heap memory
+    Parameter is a pointer -> Returned by malloc()
+        int *x = malloc(10 * sizeof(int));
+        ...
+        free(x);
+
+14.4 Common Errors
+    Newer languages support automatic memory management
+        Instead of freeing space manually, there's a garbage collector
+            Runs and figures out what memory you no longer have references to and frees it
+
+    Forgetting To Allocate Memory
+        Sample code:
+            char *src = "hello";
+            char *dst;        // oops! unallocated
+            strcpy(dst, src); // segfault and die
+        
+        Sample code will cause segmentation fault because routines expect memory to be allocated before the call.
+        
+        Fixed code:
+            char *src = "hello";
+            char *dst = (char *) malloc(strlen(src) + 1);
+            strcpy(dst, src); // work properly
+    
+    Not Allocating Enough Memory
+        Sample code:
+            char *src = "hello";
+            char *dst = (char *) malloc(strlen(src)); // too small!
+            strcpy(dst, src); // work properly
+
+        Writing one byte too far past the end of the allocated space may result in errors:
+            Overwriting unused variable
+            Security vulnearbilities
+            Program may fault and crash
+
+    Forgetting to Initialize Allocated Memory
+        Encounter uninitialized read
+            Reads from the heap some data of unknown value
+                Can be zero or something random/harmful
+
+    Forgetting To Free Memory
+        Memory leak
+            Can lead to running out of memory
+        If program is short-lived, the OS will clean up when the process dies
+
+    Freeing Memory Before You Are Done With It
+        Dangling pointer
+            non-NULL pointer pointing to an unallocated (already freed) memory area
+
+    Freeing Memory Repeatedly
+        Double free
+            Memory-allocation library may get confused and crash
+
+    Calling free() Incorrectly
+        Should pass correct parameter to avoid other problems mentioned above
+
+14.5 Underlying OS Support
+    malloc() and free() are library calls
+    brk is a system call:
+        Used to change location of program's break (end of the heap)
+        Increases/Decreases size of heap depending if new break is larger/smaller than current break
+        Should never call brk() or sbrk()
+
+
+14.6 Other Calls
+    calloc() allocates memory and zeroes it before returning
+    realloc() makes a new larger region of memory, copies the old region into it and returns the pointer to the new region

@@ -1,0 +1,83 @@
+Mechanism: Limited Direct Execution
+In order to virtualize the CPU, the operating system needs to share the physical CPU among many jobs running seemingly simultaneously.
+However, it needs to obtain high performance while maintaining control of the CPU.
+
+6.1 Basic Technique: Limited Direct Execution
+    Direct Execution: run the program on the CPU
+        OS:
+            Creates entry for process list
+            Allocates memory for program
+            Load program into memory (from disk)
+            Set up stack with argc/argv
+            Clear registers
+            Execute call main()
+        Program:
+            Run main()
+            Execute return from main
+        OS:
+            Free memory of process
+            Remove from process list
+    Problems:
+        How do we make sure the program doesn't do anything we don't want it to do
+        How do we make sure the program is running efficiently.
+        How does the operating system stop a process from running and switching to another (time sharing)
+
+6.2 Problem #1: Restricted Operations
+    Direct exectuion is fast because program runs natively on the hardware CPU.
+    However, it has a problem:
+        What if it wishes to perform a restricted operation?
+            Issuing an I/O request to a disk
+            Gaining access to more system resources
+
+    Processor modes:
+        User mode
+            Restricted in some things
+                Process can't issue I/O requests
+            Don't have full access to hardware resources
+        Kernel mode
+            Operating System and kernel
+            Can do anything it likes.
+                Issue I/O requests
+                Executing all types of restricted operations
+            Access to full resources of the machine
+
+    If user process wants to perform a privileged operation, user programs should perform a system call.
+        To execute a system call, program must execute a special trap instruction.
+        Jumps into kernel and raise privilege level to kernel mode
+        When finished, OS calls a special return-from-trap instruction
+            Returns to calling user program and reducing privilege level to user mode
+    Must be careful so caller's registers are saved
+        x86: Program counter, flags, etc. are pushed onto a per-process kernel stack
+
+    Trap table is set up at boot time.
+    OS tells hardware what code to run when certain events occur.
+        Hard-disk interrupt
+        Keyboard interrupt
+        Program making system call
+    OS informs hardware the location of trap handlers
+
+    LDE Protocol
+        Phase 1 (Boot time)
+            Kernel initializes trap table
+        Phase 2 (Running a process)
+            Kernel sets up a few things
+            Switches CPU to user mode
+            Runs the process
+
+6.3 Problem #2: Switching Between Processes
+    Cooperative approach
+        OS trusts processes to behave reasonably
+            Process will periodically give up the CPU if it runs for too long.
+    
+    Non-Cooperative approach
+        OS takes control
+        Timer interrupt: timer is programmed to raise an interrupt every millisecond.
+            When interrupt is raised, current process is stopped and a pre-configured interrupt handler runs.
+        OS must inform the hardware which code to run when the timer interrupt occurs
+        OS must start the timer
+            Eventually control will be returned to OS
+
+    Scheduler decides whether to continue running the currently-running process or switch to a different one.
+        Switch: OS executes context switch
+            Saves a few register values for currently-executing process
+            Restoer a few for the soon-to-be-executing process

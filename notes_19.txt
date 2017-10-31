@@ -1,0 +1,76 @@
+Paging: Faster Translations (TLBs)
+
+Translation-lookaside buffer (TLB) is part of the chip's MMU
+    Hardware cache of popular virtual-to-physical address translations
+        Adddress-translation cache
+
+For every memory reference, the hardware checks the TLB, otherwise it consults the page table.
+
+19.1 TLB Basic Algorithm
+    Extract the VPN from the virtual address
+    Check if TLB holds the translation for this VPN
+        TLB hit
+            Can extract PFN from TLB etnry
+            Concatenate that onto the offset from the original virtual address
+            Form desired physical address
+            Access memory
+        TLB miss
+            Hardware access page table
+            (Assuming valid and accessible)
+            Update TLB with translation
+            Repeat (to get TLB hit)
+
+            Costly because need access to page table
+
+19.2 Example: Accessing An Array
+    First access to an element on a page will yield a TLB miss
+    Spatial locality:
+        Elements of array are packed tightly into pages (close to one another in space)
+    Temporal locality:
+        Quick re-reference of memory items in time
+            Accessing the same array after accessing it once
+
+19.3 Who Handles The TLB Miss?
+    If hardware handles the TLB miss, it should know where the page tables are located in memory (via page-table base register)
+
+    Hardware-managed TLBs
+        Multi-level page table
+    Software-managed TLBs
+        Hardware just raises an exception
+        Pauses current instruction stream
+        Raises privilege level to kernel mode
+        Jumps to trap handler
+            Code within the OS with the purpose of handling TLB misses
+        TLB miss-handling trap
+            Resumes execution at the instruction that caused the trap
+
+19.4 TLB Contents: What's In There?
+    TLB entry might look like this:
+        VPN | PFN | other bits
+    Valid bit
+        Whether entry has valid translation or not
+    Protection bit
+        How a page can be accessed
+
+19.5 TLB Issue: Context Switches
+    TLB only contains virtual-to-physical translations for the currently running process
+    When switching from one process to another, the hardware or OS (or both) must ensure that the new process to be run does not use translations from previously-ran processes
+
+    Solution:
+        Flush TLB on context switches
+        Sets all valid bits to 0
+            Clear contents of TLB
+        Cost:
+            Each time a context switch happens, processes must incur TLB misses
+            Cost may be high if switches happen frequently
+        Address-space identifiers (ASID)
+            TLB can hold translations from different processes at the same time
+
+19.6 Issue: Replacement Policy
+    Cache replacement
+        When installing new entry in TLB, we have to replace old one
+            Evict least-recently-used (LRU) entry
+                Loops over n+1 pages with a TLB of size n
+                Misses upon every access
+            Random policy
+                Simple

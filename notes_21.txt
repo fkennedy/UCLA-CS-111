@@ -1,0 +1,50 @@
+Beyond Physical Memory: Mechanisms
+
+21.1 Swap Space
+    A space on the disk for moving pages back and forth
+        Out of memory/Into memory
+    OS will need to remember the disk address of a given page
+
+21.2 The Present Bit
+    When the hardware looks in the PTE, it may find that the page is not present in physical memory
+        Set to 1: Page is present at physical memory 
+        Set to 0: Page is not in memory but on disk
+            Usually referred as "page fault"
+
+21.3 The Page Fault
+    Page-fault handler determines what to do when it encounters a page fault
+        If page is not present and has been swapped to disk, OS will need to swap the page into memory to service the page fault
+            Looks in the PTE to find address
+            Issues request to disk to fetch page into memory
+            OS update the page table to mark page as present
+            Update PFN field of PTE
+            Retry instruction
+                Generate TLB miss
+                Serviced & update TLB with translation
+
+21.4 What If Memory Is Full?
+    Page-replacement policy
+        Replace pages/page out to make room for the new page(s) the OS is about to bring in to the swap space
+
+21.5 Page Fault Control Flow
+    When TLB miss occurs
+        Page was both present and valid
+            TLB miss handler can grab PFN from the PTE & retry (TLB hit)
+        Page fault handler must be run
+            Page was valid, but not present in physical memory
+        Page is invalid
+            Hardware traps this access, OS trap handler runs, process is terminated
+
+    Page Fault
+        OS must find physical frame for the soon-to-be-faulted-in page to reside within
+            If no such page, ahve to wait for replacement algorithm
+        With physical frame, handler issues I/O request to read in the page from swap space
+        OS updates page table and retries instruction
+        Will result in TLB miss, then TLB hit
+
+21.6 When Replacements Really Occur
+    High Watermark (HW)
+    Low Watermark (LW)
+    When OS notices there are fewer than LW pages available, background thread for freeing memory runs
+        Swap daemon or Page daemon
+    Thread evicts pages until there are HW pages available

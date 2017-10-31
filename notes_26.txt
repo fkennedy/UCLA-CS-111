@@ -1,0 +1,67 @@
+Concurrency: An Introduction
+
+Threads 
+    Very much like a separate process
+    Shares the same address space
+    Access the same data
+
+State of thread:
+    PC - tracks where the program is fetching instructions from
+    Private set of registers for computation
+    When switching from one thread to running another, context switch must take place
+        Register state of T1 must be saved and register state of T2 must be restored
+            Saved state to thread control blocks (TCBs)
+        Address space remains the same
+            No need to switch which page table we are using
+
+Single-threaded process: single stack
+Multi-threaded process: multiple stacks
+    Each thread runs independently
+
+26.1 Why Use Threads?
+    Parallelism
+    Avoid blocking program progress due to slow I/O
+
+26.2 An Example: Thread Creation
+    Run program that creates two threads
+        Independent work
+            Printing "A" or "B"
+    pthread_create() - Main program creates two threads, each will run function mythread(), though with different arguments
+    pthread_join() - Main program will wait for a particular thread to complete before running main thread again
+
+    Thread creation is like a function call (but without the immediate execution for the routine that is being called)
+    What runs next is determined by the OS scheduler
+        Many possibilities on how the threads work
+            Can run after all threads are created
+            Can run immediately after a thread is created
+            Can run other threads before running the first created thread
+                We cannot assume that "When a thread is created first, it will run first"
+
+26.3 Why It Gets Worse: Shared Data
+    See t1.c
+    Running it won't give us the desired result of counter = 20000000
+        Everytime we run, we get a different value
+
+26.4 The Heart Of The Problem: Uncontrolled Scheduling
+    It is possible for the program to run incorrectly
+    Example:
+        Assembly code of counter += 1
+            mov 0x8049a1c, %eax
+            add $0x1, %eax
+            mov %eax, 0x8049a1c
+
+        Let initial counter = 50
+        Thread 1 executes the program, but right before it moves the value in eax to memory, a time interrupt occurs and context switches to Thread 2
+        Thread 2 executes the program, so the counter is now 51
+        Thread 1 resumes running, but since counter is 51, it puts 51 into memory
+            Essentially, the problem here is that both threads ran already but the counter is only added by 1
+
+    Race condition
+        They are results that depend on the timing execution of the code
+        Code that results in race condition is called a critical section
+        Mutual exclusion
+            This property guarantees that if one thread is executing within the critical section, the others will be prevented from doing so
+
+26.5 The Wish For Atomicity
+    Atomically means "as a unit"
+        Runs instructions "all or none"

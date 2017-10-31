@@ -1,0 +1,53 @@
+I/O Devices
+
+36.1 System Architecture
+    Main memory is attached to the CPU via memory bus
+    Devices are connected to the system via a general I/O bus
+        Graphics and higher performance I/O devices
+    Devices are connected via peripheral bus
+        SCSI, SATA, USB
+            Slowest devices including disks, mice
+
+36.2 A Canonical Device
+    Two important components
+        Hardware Interface
+            Allows the system software to control its operation
+        Internal Structure
+            Implementing the abstraction the device presents to the system
+            Firmware
+                Software within hardware device to implement its functionality
+
+36.3 The Canonical Protocol
+    Status Register
+        To see the current status of the device
+    Command Register
+        To tell the device to perform a certain task
+    Data Register
+        To pass data to the device or get data from the device
+
+    1. OS waits until device is ready to receive a command (polling the device)
+    2. OS sends data to the data register
+        If main CPU is involved with the data movement, we refer to it as programmed I/O (PIO)
+    3. OS writes command to the command register
+        Lets the device know that data is present and should work on the command
+    4. OS waits until device is finished (polling)
+
+    Problems
+        Inefficient - waste CPU just to wait instead of switching to another ready process
+
+36.4 Lowering CPU Overhead With Interrupts
+    Instead of continually polling the device, OS can issue a request, put the process to sleep and context switch
+    Hardware interrupt when device is finished with its operation
+
+    Livelock
+        Only processing interrupts and never allowing a user-level process to run
+
+    Coalescing
+        Multiple interrupts can be coalesced into a single interrupt delivery
+            May increase latency of request
+
+36.5 More Efficient Data Movement With DMA
+    Direct Memory Access
+        OS would program the engine by telling where it lives in the memory
+        How much data to copy
+        Which device to send data to

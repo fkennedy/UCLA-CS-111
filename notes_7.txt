@@ -1,0 +1,108 @@
+Scheduling: Introduction
+
+7.1 Workload Assumption
+    1. Each job runs for the same amount of time
+    2. All jobs arrive at the same time
+    3. Once started, each job runs to completion
+    4. All jobs only use the CPU (no I/O)
+    5. The run-time of each job is known
+
+7.2 Scheduling Metrics
+    Simple metric: turnaround time which is a defined as the time at which the job computes minus the time at which the job arrived in the system
+        T_turnaround = T_completion - T_arrival
+    Performance metric
+    Fairness metric (Jain's Fairness Index)
+    Performance and fairness are at odds
+        May optimize performance but at the cost of preventing few jobs from running
+
+7.3 First In, First Out (FIFO)
+    Advantages:
+        Simple
+        Easy to implement
+    Disadvantages:
+        If the first job of 3 jobs that arrived has a long runtime, the average turnaround time for them is high
+            e.g. Job A runs for 100 seconds while B and C run for 10 each
+            Average turnaround will be 110 seconds
+    Convoy effect - a number of relatively-short potential consumers of a resource get queued behind a heavyweight resource consumer
+
+7.4 Shortest Job First (SJF)
+    Non-preemptive - run each job to completion
+    Preemptive - willing to stop one process from running for running another process
+    SJF is a non-preemptive optimal scheduling algorithm
+        Using the e
+        xample above, it will run B, then C, then A last
+        Average turnaround will be 50 seconds
+
+        Relax the assumption, all jobs don't arrive at the same time
+        Job A at t = 0, Jobs B and C at t = 10
+            Average turnaround time is 103.33 seconds
+        Suffer same convoy problem
+
+7.5 Shortest Time-to-Completion First (STCF)
+    STCF is a preemptive scheduler
+    Any time a new job enters the system, the scheduler determines which of the remaining has the least time left and schedules that one
+        In example above, it will run A for 10 seconds until B and C arrive, which will then schedule B and C to run
+        After that, the scheduler will continue running A
+        Average turnaround time is 50 seconds
+        With the relaxed assumptions, STCF is optimal (SJF is optimal only if all jobs arrive at the same time)
+
+7.6 A New Metric: Response Time
+    Response time is defined as the time from when the job arrives to the first time it is scheduled.
+        T_response = T_firstrun - T_arrival
+    Using example above, response time of each job is as follows
+        A: 0
+        B: 0
+        C: 10
+        Average is 3.33
+    STCF is not good for response time. If the jobs arrive at the same time, the third job has to wait for the previous jobs to run in entirety before being scheduled once
+
+7.7 Round Robin
+    Also known as time-slicing.
+    Runs a job for a time slice (scheduling quantum) then switches to next job in queue
+    Length of time slice must be a multiple of the timer-interrupt period
+        If timer interrupts every 10ms, timeslice should be 10/20/30/etc ms
+    Example:
+        A, B, and C arrive at the same time
+        Each job takes 5 seconds
+        Average response time of RR is 1
+        Average response time of SJF is 5
+    The shorter the time slice, the better the performance of RR under the response-time metric.
+        Problematic
+        Cost of context switching will dominate overall performance.
+    Amortization!
+        By incurring that cost less often (i.e., by performing the operation fewer times), the total cost to the system is reduced.
+        Example:
+            If time slice is set to 10ms, and context-switch cost is 1 ms, 10% of time is spent context switching
+            To amortize cost, increase time slice to 100ms, so 1% of time is spent context switching
+    RR is bad for turnaround time
+        i.e. above, A finishes at 13, B at 14, C at 15
+        Average turnaround time is 14
+    RR is fair (at the cost of reducing performance)
+
+7.8 Incorporating I/O
+    All programs perform I/O.
+        If no input, same output each time
+        If no output, doesn't matter if it ran
+    During I/O, job is blocked waiting for completion
+    While job is blocked, scheduler can schedule another job on CPU
+    Poor use of resources example
+        A and B are jobs that require 50 ms of CPU time
+        A runs for 10 ms then issues an I/O request (each takes 10 ms)
+        B has no I/O
+        The scheduler will run A first, then B after
+            0-10   ms - A
+            10-20  ms - I/O
+            20-30  ms - A
+            ...
+            90-140 ms - B
+        Total time taken: 140 ms
+    Should treat each 10 ms slice of A as an independent job
+        Will run first sub-job of A
+        While disk processes the I/O request, B will be run
+        When new sub-job of A is submitted, scheduler preempts B and runs for 10ms (overlap)
+            0-10  ms - A
+            10-20 ms - Disk: I/O; CPU: B
+            20-30 ms - A
+            30-40 ms - Disk: I/O; CPU: B
+            ...
+            Total time taken: 100 ms.

@@ -1,0 +1,40 @@
+The Abstraction: Address Spaces
+
+13.1 Early Systems
+    OS was a set of routines (library) that sat in memory
+    One running process that sat in physical memory and used the rest of memory
+
+13.2 Multiprogramming and Time Sharing
+    When the demand of machines increased, people began to share machines more effectively
+        Multiprogramming - running multiple processes and OS switching among them
+        Time sharing - Using the constraint of time to run process
+
+13.3 The Address Space
+    Contains all of the memory state of the running program
+        Code - instructions
+        Stack - to keep track of local variables, pass parameters, return values to and from routines
+        Heap - dynamically-allocated, user-managed memory
+
+    Code is static
+    Heap and stack are regions of the address space that can grow (and shrink)
+        Heap (top)
+        Stack (bottom)
+    By putting them at opposite ends of the address space, they can grow in opposite directions
+    OS is virtualizing memory - program thinks it is loaded into memory at a particular address (in a large address space)
+        This particular address is called virtual address
+        Points to physical address
+
+13.4 Goals
+    Transparency
+        Program shouldn't be aware that memory is virtualized
+        Should behave like it has its own private physical memory
+    Efficiency
+        Time
+            Programs shouldn't run much more slowly
+            Rely on hardware support (TLB)
+        Space
+            Shouldn't use too much memory to support virtualization
+    Protection
+        Should protect processes from one another
+        Load/store an instruction, should not access memory contents of other processes/OS itself
+        Isolation

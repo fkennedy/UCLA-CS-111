@@ -1,0 +1,90 @@
+Interlude: Thread API
+
+27.1 Thread Creation
+    To create a thread, call routine pthread_create
+    Four arguments
+        pthread_t* thread
+            Pointer to a structure of type pthread_t
+            Essentially the "thread name"
+        pthread_attr_t* attr
+            Specify attributes the thread may have
+                Setting stack size
+                Scheduling priority information
+            Attributes are initialized with a call to pthread_attr_init()
+                Defaults value will be fine (pass NULL)
+        void* (*start_routine) (void*)
+            Function pointer
+            Returns a value of type void *
+        void* arg
+            Argument to be passed to the function
+    Having a void pointer as an argument to the function start routine allows us to pass in any type of argument
+    Having it as a return value allows the thread to return any type of result
+
+27.2 Thread Completion
+    To wait for completion, call routine pthread_join
+    Two arguments
+        pthread_t thread
+            Specify which thread to wait for
+        void **value_ptr
+            Pointer to the return value you expect to get back
+
+    In a function, we can never declare a variable on the stack because once it is finished running, the value is automatically deallocated
+
+27.3 Locks
+    If there is a region of code that is a critical section, we can use a mutex lock (mutual exclusion lock)
+        pthread_mutex_t lock;
+        pthread_mutex_lock(&lock);
+        x = x + 1; // or whatever your critical section is
+        pthread_mutex_unlock(&lock)
+
+    If no thread holds the lock when lock() is called, thread will acqurie the lock and enter the critical section
+    If another thread does hold the lock, the thread trying to grab the lock will not return from the call until it has acquired the lock (waiting for the thread holding the lock to call unlock()).
+
+    Two ways to initialize mutex lock:
+        Set the lock to default values
+            pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+        Dynamic way (at run time)
+            int rc = pthread_mutex_init(&lock, NULL);
+            assert(rc == 0); // always check success!
+                pthread_mutex_init accepts two arguments
+                    First argument is the address of the lock itself
+                    Second argument is the attributes the lock has
+                If initializing a mutex lock with init(), we must call its corresponding destroy() function,
+                    pthread_mutex_destroy()
+
+    Should wrap functions to check for failures
+
+27.4 Condition Variables
+    Useful when signaling must take place between threads
+    Two primary routines:
+        int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
+            Puts calling thread to sleep
+            Waits for some other thread to signal it
+        int pthread_cond_signal(pthread_cond_t *cond);
+            To wake the thread
+
+        Sample code:
+            pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+            pthread_cond_t  cond = PTHREAD_COND_INITIALIZER;
+            pthread_mutex_lock(&lock);
+            while (ready == 0)
+                Pthread_cond_wait(&cond, &lock);
+            pthread_mutex_unlock(&lock);
+
+            Another function for another thread
+            pthread_mutex_lock(&lock);
+            ready = 1;
+            pthread_cond_signal(&cond);
+            pthread_mutex_unlock(&lock);
+
+        The wait() function passes lock as an argument
+            This is to release the lock when putting said caller to sleep
+            After waking, before returning, it re-acquires the lock
+            Use while() to keep checking for a change in condition variable
+
+27.5 Compiling and Running
+    When compiling,
+        Include pthreads header
+            #include <pthread.h>
+        Add -pthread flag
+            gcc -o main main.c -Wall -pthread

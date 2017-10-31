@@ -1,0 +1,143 @@
+Beyond Physical Memory: Policies
+
+22.1 Cache Management
+    Replacement policy for the cache (main memory holds some subset of all the pages in the system) is to minimize the number of cache misses
+        Knowing how many hits and misses allow us to calculate the average memory access time (AMAT)
+            AMAT = P_Hit*T_M + P_Miss*T_D
+                T_M represents the cost of accessing memory
+                T_D represents the cost of accessing disk
+                P_Hit represents the probability of finding the data item in the cache
+                P_Miss represents the probability of not finding the data in the cache
+
+22.2 The Optimal Replacement Policy
+    Optimal policy was developed by Belady (originally called MIN)
+        If you have to page out a page, why not page out the one that is needed the furthest from now?
+            Refer to other pages before referring to the one furthest out
+    Cold-start miss (or compulsory miss) is when the first access is a miss
+    
+    RCS: Resulting Cache State
+    Access  Hit/Miss?   Evict   RCS
+       0      Miss               0 
+       1      Miss              0,1
+       2      Miss             0,1,2
+       0       Hit             0,1,2 
+       1       Hit             0,1,2
+       3      Miss        2    0,1,3 *
+       0       Hit             0,1,3 
+       3       Hit             0,1,3
+       1       Hit             0,1,3
+       2      Miss        3    0,1,2 *
+       1       HIt             0,1,2
+
+    * Optimal Policy - looks at the resulting cache state, 0 is accessed immediately, 1 is accessed later, 2/3 is accessed after 1 is accessed, so evict 2/3 to replace with 3/2
+
+    Compute hit rate:
+        6 hits and 5 misses
+        Hits/(Hits+Misses) = 54.5%
+    Compute hite rate module compulsory misses:
+        6 hits and 1 misses (-4 misses because first time accessing 0,1,2,3)
+        Hits/(Hits+Misses) = 85.7%
+
+22.3 A Simple Policy: FIFO
+    First-in, first-out
+        Pages are placed in a queue when they enter the system
+        Page on the tail of the queue is evicted ("first-in" page)
+        Simple to implement
+    
+    Access  Hit/Miss?   Evict   RCS
+       0      Miss               0 
+       1      Miss              0,1
+       2      Miss             0,1,2
+       0       Hit             0,1,2 
+       1       Hit             0,1,2
+       3      Miss        0    1,2,3
+       0      Miss        1    2,3,0 
+       3       Hit             2,3,0
+       1      Miss        2    3,0,1
+       2      Miss        3    0,1,2
+       1       HIt             0,1,2
+
+    FIFO does worse than optimal (36.4% hit rate, 57.1% excluding compulsory misses)
+        Can't determine the importance of blocks
+            Even though page 0 had been accessed multiple times, FIFO still kicks out because it was the first one brought into memory
+
+22.4 Another Simple Policy: Random
+    Simply picks a random page to replace under memory pressure
+    
+    Access  Hit/Miss?   Evict   RCS
+       0      Miss               0 
+       1      Miss              0,1
+       2      Miss             0,1,2
+       0       Hit             0,1,2 
+       1       Hit             0,1,2
+       3      Miss        0    1,2,3
+       0      Miss        1    2,3,0 
+       3       Hit             2,3,0
+       1      Miss        3    2,0,1
+       2       Hit             2,0,1
+       1       HIt             2,0,1
+
+    Does a better job than FIFO but still worse than optimal
+
+22.5 Using History: LRU (Least-Recently-Used)
+    FIFO/Random might kick out important page
+    To improve our guess at the future, we use history as our guide
+        Frequency - if a page has been accessed many times
+            LFU
+                Least-Frequently-Used
+                Replaces the least-frequently-used page
+        Recency - if a page has been accessed recently
+            LRU
+                Least-Recently-Used
+                Replaces the least-recently-used page
+
+                Access  Hit/Miss?   Evict   RCS
+                   0      Miss               0 
+                   1      Miss              0,1
+                   2      Miss             0,1,2
+                   0       Hit             1,2,0 
+                   1       Hit             2,0,1
+                   3      Miss        2    0,1,3
+                   0       Hit             1,3,0 
+                   3       Hit             1,0,3
+                   1       Hit             0,3,1
+                   2      Miss        0    3,1,2
+                   1       Hit             3,2,1
+
+                RCS: Right means most-recently used
+
+22.8 Approximating LRU
+    Use bit (reference bit)
+        One use bit per page of the system
+        Live in memory somewhere
+        When page is referenced, use bit is set by hardware to 1, (OS' responsibility to clear it)
+    Clock algorithm
+        Clock hand points to some particular page to begin with
+        When replacement must occur, OS checks if currently-pointed to page P if its use bit is set
+            If 1, P was recently used (not good for replacement)
+                OS clears the use bit
+            If 0, replace page
+                This will happen if the page is not recently used or worst case scenario, all pages have been and searched through, clearing all bits
+
+22.9 Considering Dirty Pages
+    If a page has been modified (dirty), it must be written back to disk to evict it
+    Otherwise, physical frame can be reused for other purposes without additional I/O
+    Hardware should include a modified bit (or dirty bit)
+
+22.10 Other VM Policies
+    Page selection policy
+        It is when OS has to decide when to bring a page into memory
+    For most pages, OS simply uses demand paging,
+        OS brings the page into memory when it is accessed - "on demand"
+        OS could guess that page is about to be used
+            Bring it ahead of time
+            Prefetching
+                Only done when there is a reasonable chance of success
+    Clustering/Grouping of writes
+        System collects a number of pending writes
+        Writes together in disk in one (more efficient)
+
+22.11 Thrashing
+    System is constantly paging is a condition referred to as thrashing
+    Admission control - Limits the set of process' working sets to fit in memory
+    Out-of-memory killer - Daemon chooses a memory-intensive process and kills it

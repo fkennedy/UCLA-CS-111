@@ -1,0 +1,82 @@
+Paging: Introduction
+
+Paging:
+    Chopping up the space into fixed-sized pieces
+    Instead of splitting up the address space into segments (code, heap, stack), we divide them into fixed-sized units (pages)
+
+18.1 A Simple Example And Overview
+    Advantages:
+        Flexibility
+            System will be able to support the abstraction of an address space
+                No assumptions about the direction the heap/stack grow and how they are used
+        Simplicity
+            If it needs to place 64-byte address space (divided into 4 (virtual) pages) into an 8-page table, it simply finds four free pages.
+    Page table
+        Address translation
+            Records where each virtual page of the address space is placed in physical memory
+
+            To translate virtual address, split to two components
+                Virtual page number (VPN)
+                Offset
+            Address space is 64 bytes, we need 6 bits total for address
+            Page size is 16 bytes, so we use top 2 bits of the address to select of 4 pages
+            The remaining bits will tell us which byte of the page we are interested in
+            Example:
+                Virtual address "21" is on the 5th ("0101"th) byte of virtual page 1 ("01")
+                VPN is translated to PFN (or PPN) (Physical frame/page number)
+                    Offset stays the same
+
+18.2 Where Are Page Tables Stored?
+    32-bit address space with 4 KB pages requires a virtual address of 32 bits
+        20-bit VPN
+            There are 2^20 translations the OS would manage for each process
+                4 bytes per page table entry (PTE)
+                4 MB of memory is needed for each page table
+        12-bit offset
+
+        IN GENERAL, page tables are big
+
+18.3 What's Actually In The Page Table?
+    Data structure to map virtual addresses to physical addresses
+    Linear page table - array
+        Indexes the array by VPN
+        Looks up the PTE to get PFN
+
+    Contents of PTE
+        Valid bit - whether particular translation is valid
+            Marks all unused pages in the address space invalid
+        Protection bits
+            Whether it can be read from, written to, or executed from
+            Also determines which user-mode can access the page
+        Present bit
+            If page is in physical memory or on disk
+        Dirty bit
+            If page has been modified since it was brought into memory
+        Reference bit
+            Whether the page has been accessed since placed in memory
+        PFN  
+            To determine if page is popular and kept in memory
+
+18.4 Paging: Also Too Slow 
+    To fetch desired data
+        System translates virtual address into the correct physical address
+        System fetch proper PTE from process' page table
+        Perform the translation
+        Load data from physical memory
+
+18.5 A Memory Trace
+    See array.c
+    Convert the code into assembly
+        0x1024 movl $0x0,(%edi,%eax,4)
+        0x1028 incl %eax
+        0x102c cmpl $0x03e8,%eax
+        0x1030 jne  0x1024
+
+    movl $0x0,(%edi,%eax,4) means it's moving 0 to address edi+4eax
+    incrementing eax
+    compares 0x3e8 to eax
+    loops if eax != 0x3e8
+
+    edi holds base address of edi
+    eax holds array index
+        multiplied by 4 because each array element is of size 4 (integer)

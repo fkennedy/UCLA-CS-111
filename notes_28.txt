@@ -1,0 +1,133 @@
+Locks
+
+28.1 Locks: The basic Idea
+    To protect a critical section, add some code around it.
+
+28.2 Pthread Locks
+    Mutex locks
+        Provide mutual exclusion among threads
+            If one thread is in the critical section, it excludes the others from entering until it has completed the section
+
+28.4 Evaluating Locks
+    Efficacy/Correctness
+        Whether the lock works or not
+            Does it provide mutual exclusion?
+                Does it prevent multiple threads from entering a critical section?
+    Fairness
+        Whether the lock provides fairness among threads
+            Does each thread contending for the lock get a fair shot at acquiring it once it is free?
+                Does any thread contending for the lock starve while doing so, thus never obtaining it?
+    Performance
+        Whether the lock added time overheads
+
+28.5 Controlling Interrupts
+    Sample code:
+        void lock() {
+            DisableInterrupts();
+        }
+        void unlock() {
+            EnableInterrupts();
+        }
+
+    Before entering a critical section, we turn off interrupts so the code will not be interrupted (execute as if atomic)
+        Advantage
+            Thread can be sure that the code it executes will execute and that no other thread will interfere with it
+        Disadvantages
+            Requires thread to perform privileged operation
+                Trust is not abused
+                    Possible trouble is that the program could monopolize the processor
+            Does not work on multiprocessors
+                Threads will run on other processors (could enter critical section even though there's a mutex lock)
+            Turning off interrupts may result in interrupts becoming lost
+                If the CPU missed the fact that a disk device has finished a read request, how will the OS know to wake the process waiting for said read?
+            Inefficient
+                Code that masks or unmasks interrupts tends to be executed slowly by modern CPUs
+
+28.6 Test And Set (Atomic Exchange)
+    Use variable to indicate whether a thread has the lock
+    First thread that enters critical section will check if flag is set to 1
+        If no, set flag to 1 and thread now holds the lock
+            When finished, thread calls unlock(), clears the flag, and lock is no longer held
+        If yes, spin-wait until the lock is released()
+
+    Two problems
+        Correctness
+            Similar to race condition problem
+            Interrupted and resulted in both threads setting the flag to 1 and able to enter the critical section
+        Performance
+            Spin-waiting wastes time
+
+28.7 Building A Working Spin Lock
+    Sample code:
+        int TestAndSet(int *old_ptr, int new) {
+            int old = *old_ptr; // fetch old value at old_ptr
+            *old_ptr = new;     // store ’new’ into old_ptr
+            return old;         // return the old value
+        }
+        
+        typedef struct __lock_t {
+            int flag;
+        } lock_t;
+
+        void init(lock_t *lock) {
+            // 0 indicates that lock is available, 1 that it is held
+            lock->flag = 0;
+        }
+
+        void lock(lock_t *lock) {
+            while (TestAndSet(&lock->flag, 1) == 1)
+                ; // spin-wait (do nothing)
+        }
+
+        void unlock(lock_t *lock) {
+            lock->flag = 0;
+        }
+
+    TestAndSet
+        Returns old value pointed to by the ptr
+        Simultaneously updates said value to new
+        When called,
+            Routine will return the old value of flag
+            If lock is available
+                Will not get caught spinning in the while loop
+                Acquire the lock
+            If lock isn't available
+                Will get caught spinning in the while loop
+                    Simulatanouesly setting the flag to 1 constantly
+                Until lock is finally released
+                    Lock becomes available
+                    Will not get caught spinning in the while loop
+                    Acquire the lock
+
+    Requires preemptive scheduler (one that will interrupt a thread via a timer, in order to run a different thread, from time to time)
+    Simplest type of lock to build, and simply spins, using CPU cycles, until the lock becomes available
+
+28.8 Evaluating Spin Locks
+    Correctness:
+        Does it provide mutual exclusion?
+            Yes, spin lock only allows a single thread to enter the critical section at a time
+    Fairness:
+        Is it fair?
+            No, threads may spin forever and lead to starvation of other threads
+    Performance:
+        In single CPU, performance overheads can be painful
+        In multiple CPUs, not as painful
+            Spinning to wait for a lock held on another processor doesn’t waste many cycles
+
+28.9 Compare-And-Swap
+    Sample Code:
+        int CompareAndSwap(int *ptr, int expected, int new) {
+            int actual = *ptr;
+            if (actual == expected)
+                *ptr = new;
+            return actual;
+        }
+
+        void lock(lock_t *lock) {
+            while (CompareAndSwap(&lock->flag, 0, 1) == 1)
+                ; // spin
+        }
+
+    Tests whether the value at the address specified by ptr is equal to expected
+        If not, do nothing
+        If yes, then it works similar to test-and-set

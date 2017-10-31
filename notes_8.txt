@@ -1,0 +1,48 @@
+Scheduling: The Multi-Level Feedback Queue
+
+8.1 MLFQ: Basic Rules
+    Has a number of queue each at a different priority level
+        Used the priorities to decide which should run at a given time
+    Use round-robin scheduling among jobs in the same priority level
+    If the job repeatedly gives up the CPU, MLFQ will keep its priority high
+    However, if the job uses the CPU intensively, MLFQ will reduce its priority
+        Learn about processes as they run
+
+    Rule 1: If Priority(A) > Priority(B), A runs (B doesn't)
+    Rule 2: If Priority(A) = Priority(B), A & B run in RR
+
+8.2 Attempt #1: How To Change Priority
+    Rule 3: When a job enters the system, it is placed at the highest priority (the topmost queue)
+    Rule 4a: If a job uses up an entire time slice while running, its priority is reduced (i.e., it moves down one queue)
+    Rule 4b: If a job gives up the CPU before the time slice is up, it stays at the same priority level
+
+    PROBLEMS
+        Starvation - "Too many" interactive jobs will combine to consume all CPU time and long-running jobs will never receive any CPU time
+        Scheduler can be tricked - use 99% of the time slice before relinquishing the CPU (sending an unnecessary I/O request)
+
+8.3 Attempt #2: The Priority Boost
+    Rule 5: After some time period S, move all the jobs in they system to the topmost queue
+    Time period S should not be too high to starve long-running jobs and too low that interactive jobs may not get a proper share of the CPU
+
+8.4 Attempt #3: Better Accounting
+    Rule 4: Once a job uses up its time allotment at a given level (regardless of how many times it has given up the CPU), its priority is reduced (i.e., it moves down one queue)
+    Wihtout any protection, the process can issue an I/O request right before the end of its time slice and dominate the CPU
+    With protection, regardless of any I/O requests, it slowly moves down queues
+
+8.5 Tuning MLFQ And Other Issues
+    How to parameterize a scheduler?
+        How many queues should there be?
+        How big shoudl the time slice be per queue?
+        How often should priority be boosted in order to avoid starvation and account for changes in behavior?
+
+    High priority queues are given short time slices - should be comprised of interactive jobs
+    Low priority queues are given longer time slices
+
+    The Solaris MLFQ implementation - Time-Sharing scheduling class
+        Provides set of tables:
+            Default values
+                60 queues
+                Slowly increasing time-slice lengths from 20 milliseconds (highest priority) to a few hundred milliseconds (lowest priority)
+                Priorities are boosted around every 1 second or so.
+
+    Other MLFQ schedulers use a mathematical formulae (FreeBSD scheduler)

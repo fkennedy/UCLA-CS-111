@@ -1,0 +1,52 @@
+Interlude: Process API
+
+5.1 The fork() System Call
+	Used to create new process.
+	The process that is created is an (almost) exact copy of the calling process.
+		Doesn't start at main but instead starts at fork().
+			Parent receives PID of newly-created child
+			Child returns 0.
+		Though it has its own address space, registers, PC, value it returns to the caller of fork() is different.
+	
+	p1.c:
+		Prints hello world
+		Creates child process
+		Finishes executing (parent) process
+		Executes child process
+		Finishes child process
+
+5.2 The wait() System Call
+	Parent process will wait for the child process to finish what its doing.
+	When the child is done, wait() will return to the parent process.
+
+	p2.c:
+		Prints hello world
+		Creates child process
+		Waits on (parent) process
+		Executes child process
+		Finishes child process
+		Executes parent process
+		Finishes executing parent process
+
+5.3 Finally, the exec() System Call
+	While fork() runs the same program, exec() runs a different program
+	exec(arg1, arg2)
+		arg1 - name of the program
+		arg2 - array of arguments with the last one being NULL
+			e.g.
+				["apple", "orange", NULL]
+				["p3.c", NULL]
+
+5.4 Why? Motivating the API
+	> is redirection, basically the output of the command before the redirect symbol will be printed into a file
+		e.g.
+			wc p3.c > newfile.txt will print the output of the program wc at p3.c to newfile.txt
+	Before calling exec(), the shell closes standard output and opens the file newfile.txt
+	UNIX systems start looking for free file descriptors at zero 
+
+	When we run the program p4, it doesn't look like it's doing anything, but it actually is. It runs the program (parent process), creates a fork to the child process and waits: wait(). The child process then proceed to run the wc program via call to execvp().
+
+	UNIX pipes are similar but with the pipe() system call. The output of one process is connected to an in-kernel pipe (or a queue), and the input of another process is connected to that same pipe. Basically the output of one process is used as an input of another process.
+		e.g.
+			grep -o foo file | wc -l
+				This is basically looking for a word in a file and counting how many times said word occurs.

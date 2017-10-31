@@ -1,0 +1,266 @@
+Free-Space Management
+
+External fragmentation - the free space gets fragmented
+    Little pieces of different sizes
+    Even though the total amount of free space exceeds the size of the request, requests may fail because it requires a contiguous amount of free space
+        10 (separated) fragments of 100 bytes cannot be used to fulfill a request that requires 500 bytes
+
+17.1 Assumptions
+    void *malloc(size_t size)
+        malloc() takes a single parameter, size
+            Number of bytes requested by application
+        Returns a (void) pointer to a region of that size.
+
+    void free(void *ptr)
+        Complementary routine of malloc()
+        Takes a pointer and frees the corresponding chunk
+            The library must be able to figure out how big the memory is when freeing just by being handed a pointer to it
+
+    Heap
+        Space that the library manages
+        Generic data structure used to manage free space is some kind of free list
+            Contains references to all free chunks of memory
+
+    Internal fragmentation
+        Allocator assigns chunks of memory bigger than the request, unused memory is wasted (waste occurs inside allocated unit)
+
+    Once memory is handed out to a client, it cannot be relocated to another location in memory
+        When malloc() is called, a pointer to a certain memory region (in the heap) is essentially "owned" by the program until it's returned by a call to free()
+            Compaction of free space is not possible
+
+    Allocator manages a contiguous region of bytes
+        Region is a single fixed size
+
+17.2 Low-level Mechanisms
+    Splitting and Coalescing
+        Free list contains set of elements of free space remaining in the heap
+        Example:
+             0-10 Free
+            10-20 Used
+            20-30 Free
+            
+            Free list:
+                Contains two elements
+                    Head -> A -> B -> NULL
+                    A:
+                        Addr:  0
+                         Len: 10
+                    B:
+                        Addr: 20
+                         Len: 10
+
+        A request anything greater than 10 bytes will fail because the heap has external fragmentation.
+        A request of exactly 10 bytes can be easily satisfied by either of the free chunks
+        What about a request less than 10 bytes?
+            
+        Splitting
+            Find free chunk of memory that can satisfy the request
+            Split it into two
+                First chunk is returned to the caller
+                Second chunk remains on the list
+            Example:
+                Request for 1 byte is made
+                    Allocator decide to use the second of two elements on the list
+                malloc() would return 20 (aaddress of the 1-byte allocated region)
+
+                Free list:
+                Contains two elements
+                    Head -> A -> B -> NULL
+                    A:
+                        Addr:  0
+                         Len: 10
+                    B:
+                        Addr: 21
+                         Len:  9
+            Splitting prevents internal fragmentation where the allocator allocates memory that is larger than the requested size
+
+        Coalescing
+            Calling free(10) may result in a free list like:
+                Head -> A -> B -> C -> NULL
+                    A:
+                        Addr: 10
+                         Len: 10
+                    B:
+                        Addr:  0
+                         Len: 10
+                    C:
+                        Addr: 20
+                         Len: 10
+            So coalescing is useful to combine all these free chunks of memory together (as long as they are contiguous)
+            Free list:
+                Head -> A -> NULL
+                    A:
+                        Addr:  0
+                         Len: 30
+
+    Tracking The Size of Allocated Regions
+        When calling free(void *ptr), it doesn't take a size parameter and instead when given a pointer, it should be able to determine the size of the region of memory being freed and thus incorporate the space back into the free list
+        Header block (before the handed-out chunk of memory) contains information about the allocated memory block
+        May have this structure:
+            typedef struct __header_t {
+                int size; // size of memory block
+                int magic; // integrity checking
+            } header_t;
+        free() would look something like this:
+            void free(void *ptr) {
+                header_t *hptr = (void *) ptr - sizeof(header_t);
+                ...
+            }
+
+        IMPORTANT!
+            When a user requests N bytes of memory, the library does not search for a free chunk of size N but rather it searches for a free chunk of size N plus the size of the header
+
+    Embedding A Free List
+        How do we build the list inside the free space?
+        Description of node:
+            typedef struct __node_t {
+                int              size;
+                struct __node_t *next;
+            } node_t;
+
+        Code that initializes the heap and puts the first element of the free list inside that space
+            // mmap() returns a pointer to a chunk of free space
+            node_t *head = mmap(NULL, 4096, PROT_READ|PROT_WRITE,
+                                MAP_ANON|MAP_PRIVATE, -1, 0);
+            head->size   = 4096 - sizeof(node_t);
+            head->next   = NULL;
+
+        The head pointer contains the beginning address of this range
+        VIRTUAL ADDRESS: 16 KB
+        Heap With One Free Chunk
+            head -> size: 4088  (header: size field)
+                    next:    0  (header: next field (NULL is 0))
+                    ...         the rest of the 4 KB chunk
+
+        Chunk of memory is requested (size: 100 bytes)
+            Library will first find a chunk that is large enough to accommodate the request
+            Chunk will be split into two:
+                One big enough to service the reqeuest (and header)
+                And the remaining will be free chunk
+            Assuming header is 8 bytes (int size and int magic)
+
+        Heap After One Allocation
+                    size:      100
+                    magic: 1234567
+            ptr  -> ...             the 100 bytes allocated
+            
+            head -> size:     3980
+                    next:        0
+                    ...             the free 3980 byte chunk
+        Upon the request for 100 bytes
+            Library allocated 108 bytes out of the existing one free chunk
+            Returns a pointer (marked ptr) to it
+            Stashes the header information immediately before the allocated space for later
+            Shrinks the one free node in the list to 3980 bytes (4088 - 108)
+
+        Look at heap with three allocated regions
+            First 324 bytes of heap are allocated
+                Three headers + three 100-byte regions
+            Free list is still being pointed by head (one big chunk of memory only 3764 bytes in size after three allocations)
+        Free Space With Three Chunks Allocated
+                    size:      100
+                    magic: 1234567
+                    ...             100 bytes still allocated
+                    
+                    size:      100
+                    magic: 1234567
+            sptr -> ...             100 bytes still allocated
+                                    (but about to be freed)
+                    
+                    size:      100
+                    magic: 1234567
+                    ...             100 bytes still allocated
+            
+            head -> size:     3764
+                    next:        0
+                    ...             the free 3764-byte chunk
+
+        To free the memory pointed by sptr, the application calls free(16500)
+            16500 is obtained by 16 KB + 108 (previous chunk) + 8 (header for this chunk)
+
+        Library figures out the size of the free region
+        Adds free chunk back onto the free list
+        Assume: Insert at head of free list
+        Free Space With Two Chunks Allocated
+                    size:      100
+                    magic: 1234567
+                    ...             100 bytes still allocated
+                    
+            head -> size:      100
+                    next:    16708  (16KB+108*3)
+            sptr -> ...             (now a free chunk of memory)
+                    
+                    size:      100
+                    magic: 1234567
+                    ...             100 bytes still allocated
+            
+                    size:     3764
+                    next:        0
+                    ...             the free 3764-byte chunk
+
+        Now we have a list that starts with a small free chunk (100 bytes, poitned to by the head of the list) and a large free chunk (3764 bytes)
+
+        Assuming the last two chunks are deallocated, we have to coalesce the free list to ensure that there is no external fragmentation
+
+    Growing The Heap
+        If the heap runs out of space, the simplest approach is to return NULL
+        Traditional allocators start with a small-sized heap and then request more memory from the OS when they run out
+            System call (sbrk) to grow the heap
+            Allocate new chunks from there
+
+            OS finds free physical pages
+            Maps them into the address space of the requesting process
+            Returns the value of the end of the new heap
+
+17.3 Basic Strategies
+    Best Fit
+        Search through free list
+        Find chunks of free memory that are as big or bigger than the requested size
+        Return the smallest in the group of candidates
+
+        Tries to reduce wasted space
+        Heavy performance penalty when performing an exhaustive search for the correct free block
+
+    Worst Fit
+        Search through free list
+        Find chunks of free memory that are as big or bigger than the requested size
+        Return the largest in the group of candidates
+
+        Space-costly (internal fragmentation)
+
+    First Fit
+        Finds the first block that is big enough for the requested size
+        Returns the requested amount to user
+
+        Advantage of speed - no exhaustive search
+            Can pollute the beginning of free list with small objects
+                Solve with address-based ordering
+                    
+    Next Fit
+        Similar to First Fit but keeps an extra pointer to the location within the list where one was looking last
+
+17.4 Other Approaches
+    Segregated Lists
+        If a particular application has one(or a few) popular-sized request that it makes, keep a separate list to manage objects of that size
+            All other requests are forwarded to a more general memory allocator
+        Advantages
+            Less likely to have fragmentation
+            Allocation and free requests can be served quickly
+        Disadvantages
+            How much memory should be dedicated to the separated list
+            How much memory should be dedicated to the general pool
+                Slab allocator
+                    At boot up, allocates a number of object caches for kernel objects that are likely to requested frequently (locks, file-system inodes, etc.)
+                    When cache is running low on memory, it requests more from general memory allocator
+
+    Buddy Allocation
+        Free memory is thought as a big space of size 2^N
+        When request is made, the free space recurssively divides by two until a block that is enough to accommodate the request is found
+        Can suffer from internal fragmentation
+        Coalescing is easy. Example:
+            Request of 7 KB from 64 KB
+            64 KB -> 32 KB & 32 KB -> 16 KB & 16 KB & 32 KB
+            -> 8 KB & 8 KB & 16 KB & 32 KB
+                First 8 KB is used
+                Once the 8 KB is free, it checks if the "buddy" 8KB is free, then it coalesces.
+                Recursive coalescing process continues up the tree
